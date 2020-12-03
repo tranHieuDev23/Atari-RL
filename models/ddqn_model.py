@@ -46,6 +46,9 @@ class DdqnModel(BaseModel):
             raise RuntimeError('model_path is None')
         self.model.save_weights(self.model_path)
 
+    def remember(self, state, action, reward, next_state, done):
+        pass
+
 
 class DdqnSolver(DdqnModel):
     def __init__(self, game_name, log_directory, input_shape, action_space, model_path):

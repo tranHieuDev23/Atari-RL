@@ -32,12 +32,13 @@ class Atari:
             total_run += 1
             current_state = self.__env.reset()
             score = 0
+            step = 0
             while True:
                 if (self.__total_step_limit is not None and total_step >= self.__total_step_limit):
                     print('Reached total step limit')
                     return
                 total_step += 1
-                step = 0
+                step += 1
 
                 if (self.__should_render):
                     self.__env.render()
@@ -65,7 +66,7 @@ class Atari:
         if (mode_name == 'training'):
             return DdqnTrainer(game_name, path.join(game_directory, 'logs'), INPUT_SHAPE, action_space, path.join(game_directory, 'model.h5'))
         if (mode_name == 'testing'):
-            return DdqnSolver(game_name, path.join(game_directory, 'logs'), INPUT_SHAPE, action_space, None, path.join(game_directory, 'model.h5'))
+            return DdqnSolver(game_name, path.join(game_directory, 'logs'), INPUT_SHAPE, action_space, path.join(game_directory, 'model.h5'))
         raise RuntimeError('Unrecognized mode_name: %s' % mode_name)
 
     @staticmethod
