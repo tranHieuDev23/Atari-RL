@@ -94,12 +94,10 @@ class DdqnTrainer(DdqnModel):
             return
 
         if (total_step % TRAINING_FREQUENCY == 0):
-            loss, accuracy, average_max_q = self.__train()
+            loss, average_max_q = self.__train()
             self.logger.add_loss(loss)
-            self.logger.add_accuracy(accuracy)
             self.logger.add_q(average_max_q)
             print('{{"metric": "loss", "value": {}}}'.format(loss))
-            print('{{"metric": "accuracy", "value": {}}}'.format(accuracy))
             print('{{"metric": "average_max_q", "value": {}}}'.format(average_max_q))
 
         self.__update_epsilon()
@@ -142,8 +140,7 @@ class DdqnTrainer(DdqnModel):
         fit = self.model.fit(x=np.asarray(states).squeeze(), y=np.asarray(
             q_values).squeeze(), batch_size=BATCH_SIZE, verbose=0)
         loss = fit.history['loss'][0]
-        accuracy = fit.history['accuracy'][0]
-        return loss, accuracy, mean(max_q_values)
+        return loss, mean(max_q_values)
 
     def __update_epsilon(self):
         self.epsilon -= EXPLORATION_DECAY

@@ -20,8 +20,6 @@ class Logger:
             'Run', 'Step', RUN_UPDATE_FREQUENCY, directory_path, header)
         self.__loss = Stat(
             'Update', 'Loss', TRAINING_UPDATE_FREQUENCY, directory_path, header)
-        self.__accuracy = Stat(
-            'Update', 'Accuracy', TRAINING_UPDATE_FREQUENCY, directory_path, header)
         self.__q = Stat(
             'Update', 'Q', TRAINING_UPDATE_FREQUENCY, directory_path, header)
         if (os.path.exists(directory_path)):
@@ -36,9 +34,6 @@ class Logger:
 
     def add_loss(self, value):
         self.__loss.add_entry(value)
-
-    def add_accuracy(self, value):
-        self.__accuracy.add_entry(value)
 
     def add_q(self, value):
         self.__q.add_entry(value)
