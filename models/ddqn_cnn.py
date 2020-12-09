@@ -24,7 +24,7 @@ def get_network(input_shape, action_space):
                      activation='relu',
                      input_shape=input_shape))
     model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
+    model.add(Dense(512, activation='relu'))
     model.add(Dense(action_space))
-    model.compile(loss='mean_squared_error', optimizer='adam')
+    model.compile(loss='mean_squared_error', optimizer=RMSprop(lr=0.00025, rho=0.95, epsilon=0.01))
     return model
