@@ -73,12 +73,12 @@ class DdqnTrainer(DdqnModel):
         self.memory = deque(maxlen=MEMORY_SIZE)
 
         self.data_path = data_path
-        if (path.isfile(data_path)):
-            with open(data_path, 'rb') as data_file:
-                data = pkl.load(data_file)
-                self.total_step = data['total_step']
-                self.epsilon = data['epsilon']
-                self.memory = data['memory']
+        # if (path.isfile(data_path)):
+        #     with open(data_path, 'rb') as data_file:
+        #         data = pkl.load(data_file)
+        #         self.total_step = data['total_step']
+        #         self.epsilon = data['epsilon']
+        #         self.memory = data['memory']
 
         self.model.summary()
         self.__target_model = get_network(input_shape, action_space)
@@ -126,13 +126,13 @@ class DdqnTrainer(DdqnModel):
 
     def save(self):
         self.save_weights()
-        data = {
-            'total_step': self.total_step,
-            'epsilon': self.epsilon,
-            'memory': self.memory
-        }
-        with open(self.data_path, 'wb') as data_file:
-            pkl.dump(data, data_file)
+        # data = {
+        #     'total_step': self.total_step,
+        #     'epsilon': self.epsilon,
+        #     'memory': self.memory
+        # }
+        # with open(self.data_path, 'wb') as data_file:
+        #     pkl.dump(data, data_file)
 
     def __train(self):
         batch = np.asarray(sample(self.memory, BATCH_SIZE))

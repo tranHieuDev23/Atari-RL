@@ -13,7 +13,7 @@ def parseArguments():
     parser.add_argument(
         '-m', '--mode', help='Choose from available modes: training, testing. Default is "training".', default='training')
     parser.add_argument('-tsl', '--total_step_limit',
-                        help='Choose how many total steps (frames visible by agent) should be performed. Default is 5000000.', default=5000000, type=int)
+                        help='Choose how many total steps (frames visible by agent) should be performed. Default is 10000000.', default=10000000, type=int)
     parser.add_argument('-trl', '--total_run_limit',
                         help='Choose after how many runs we should stop. Default is None (no limit).', default=None, type=int)
 

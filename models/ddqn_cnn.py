@@ -5,26 +5,19 @@ from keras.layers import Conv2D, Flatten, Dense
 
 def get_network(input_shape, action_space):
     model = Sequential()
-    model.add(Conv2D(32,
+    model.add(Conv2D(16,
                      8,
-                     strides=(4, 4),
+                     strides=4,
                      padding='valid',
                      activation='relu',
                      input_shape=input_shape))
-    model.add(Conv2D(64,
+    model.add(Conv2D(32,
                      4,
-                     strides=(2, 2),
+                     strides=2,
                      padding='valid',
-                     activation='relu',
-                     input_shape=input_shape))
-    model.add(Conv2D(64,
-                     3,
-                     strides=(1, 1),
-                     padding='valid',
-                     activation='relu',
-                     input_shape=input_shape))
+                     activation='relu'))
     model.add(Flatten())
-    model.add(Dense(512, activation='relu'))
+    model.add(Dense(256, activation='relu'))
     model.add(Dense(action_space))
-    model.compile(loss='mean_squared_error', optimizer=RMSprop(lr=0.00025, rho=0.95, epsilon=0.01))
+    model.compile(loss='mean_squared_error', optimizer='adam')
     return model
