@@ -6,6 +6,7 @@ from statistics import mean
 from os import path, getenv, getcwd
 import numpy as np
 from dotenv import load_dotenv
+import pickle as pkl
 load_dotenv(path.join(getcwd(), '.env'))
 
 GAMMA = float(getenv('GAMMA'))
@@ -27,7 +28,7 @@ EXPLORATION_DECAY = (EXPLORATION_MAX-EXPLORATION_MIN)/EXPLORATION_STEPS
 
 
 class DdqnModel(BaseModel):
-    def __init__(self, game_name, mode_name, log_directory, input_shape, action_space, model_path):
+    def __init__(self, game_name, mode_name, log_directory, input_shape, action_space, model_path, start_epsilon):
         super().__init__(game_name, mode_name, log_directory, input_shape, action_space)
         if (model_path is None):
             raise RuntimeError('model_path should not be None')
@@ -35,6 +36,7 @@ class DdqnModel(BaseModel):
         self.model = get_network(input_shape, action_space)
         if (path.isfile(model_path)):
             self.model.load_weights(model_path)
+        self.epsilon = start_epsilon
 
     def save_model(self):
         if (self.model_path is None):
@@ -53,10 +55,10 @@ class DdqnModel(BaseModel):
 class DdqnSolver(DdqnModel):
     def __init__(self, game_name, log_directory, input_shape, action_space, model_path):
         super().__init__(game_name, 'Testing', log_directory,
-                         input_shape, action_space, model_path)
+                         input_shape, action_space, model_path, EXPLORATION_TEST)
 
     def move(self, state):
-        if (random() < EXPLORATION_TEST):
+        if (random() < self.epsilon):
             return randrange(self.action_space)
         q_hat = self.model.predict(np.expand_dims(
             np.asarray(state).astype(np.float64), axis=0))
@@ -64,14 +66,23 @@ class DdqnSolver(DdqnModel):
 
 
 class DdqnTrainer(DdqnModel):
-    def __init__(self, game_name, log_directory, input_shape, action_space, model_path):
+    def __init__(self, game_name, log_directory, input_shape, action_space, model_path, data_path):
         super().__init__(game_name, 'Training', log_directory,
-                         input_shape, action_space, model_path)
+                         input_shape, action_space, model_path, EXPLORATION_MAX)
+        self.total_step = 0
+        self.memory = deque(maxlen=MEMORY_SIZE)
+
+        self.data_path = data_path
+        if (path.isfile(data_path)):
+            with open(data_path, 'rb') as data_file:
+                data = pkl.load(data_file)
+                self.total_step = data['total_step']
+                self.epsilon = data['epsilon']
+                self.memory = data['memory']
+
         self.model.summary()
         self.__target_model = get_network(input_shape, action_space)
         self.__reset_target_model()
-        self.epsilon = EXPLORATION_MAX
-        self.memory = deque(maxlen=MEMORY_SIZE)
 
     def move(self, state):
         if (random() < self.epsilon or len(self.memory) < REPLAY_START_SIZE):
@@ -89,11 +100,12 @@ class DdqnTrainer(DdqnModel):
             'done': done,
         })
 
-    def step_update(self, total_step):
+    def step_update(self, current_step):
+        self.total_step += 1
         if (len(self.memory) < REPLAY_START_SIZE):
             return
 
-        if (total_step % TRAINING_FREQUENCY == 0):
+        if (self.total_step % TRAINING_FREQUENCY == 0):
             loss, average_max_q = self.__train()
             self.logger.add_loss(loss)
             self.logger.add_q(average_max_q)
@@ -102,15 +114,25 @@ class DdqnTrainer(DdqnModel):
 
         self.__update_epsilon()
 
-        if (total_step % MODEL_PERSISTENCE_UPDATE_FREQUENCY == 0):
-            self.save_weights()
+        if (self.total_step % MODEL_PERSISTENCE_UPDATE_FREQUENCY == 0):
+            self.save()
 
-        if (total_step % TARGET_NETWORK_UPDATE_FREQUENCY == 0):
+        if (self.total_step % TARGET_NETWORK_UPDATE_FREQUENCY == 0):
             self.__reset_target_model()
 
-        if (total_step % LOG_FREQUENCY == 0):
+        if (self.total_step % LOG_FREQUENCY == 0):
             print('{{"metric": "epsilon", "value": {}}}'.format(self.epsilon))
-            print('{{"metric": "total_step", "value": {}}}'.format(total_step))
+            print('{{"metric": "total_step", "value": {}}}'.format(self.total_step))
+
+    def save(self):
+        self.save_weights()
+        data = {
+            'total_step': self.total_step,
+            'epsilon': self.epsilon,
+            'memory': self.memory
+        }
+        with open(self.data_path, 'wb') as data_file:
+            pkl.dump(data, data_file)
 
     def __train(self):
         batch = np.asarray(sample(self.memory, BATCH_SIZE))
@@ -121,24 +143,22 @@ class DdqnTrainer(DdqnModel):
         q_values = []
         max_q_values = []
         for item in batch:
-            state = np.expand_dims(np.asarray(
-                item['state']).astype(np.float64), axis=0)
-            next_state = np.expand_dims(np.asarray(
-                item['next_state']).astype(np.float64), axis=0)
-            q_value = list(self.model.predict(state, verbose=0)[0])
+            state = np.asarray(item['state']).astype(np.float64)
+            next_state = np.asarray(item['next_state']).astype(np.float64)
+            q_value = self.model.predict(
+                np.expand_dims(state, 0), verbose=0)[0]
             next_q_value = np.max(
-                self.__target_model.predict(next_state, verbose=0).ravel())
+                self.__target_model.predict(np.expand_dims(next_state, 0), verbose=0)[0])
             if (item['done']):
                 q_value[item['action']] = item['reward']
             else:
                 q_value[item['action']] = item['reward'] + GAMMA * next_q_value
-
             states.append(state)
             q_values.append(q_value)
             max_q_values.append(np.max(q_value))
 
-        fit = self.model.fit(x=np.asarray(states).squeeze(), y=np.asarray(
-            q_values).squeeze(), batch_size=BATCH_SIZE, verbose=0)
+        fit = self.model.fit(x=np.asarray(states), y=np.asarray(
+            q_values), batch_size=BATCH_SIZE)
         loss = fit.history['loss'][0]
         return loss, mean(max_q_values)
 

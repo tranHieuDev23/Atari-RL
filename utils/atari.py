@@ -63,10 +63,12 @@ class Atari:
     @staticmethod
     def __generate_model(game_name, mode_name, action_space):
         game_directory = Atari.__get_game_directory(game_name)
+        model_path = path.join(game_directory, 'model.h5')
         if (mode_name == 'training'):
-            return DdqnTrainer(game_name, path.join(game_directory, 'logs'), INPUT_SHAPE, action_space, path.join(game_directory, 'model.h5'))
+            data_path = path.join(game_directory, 'data.pkl')
+            return DdqnTrainer(game_name, path.join(game_directory, 'logs'), INPUT_SHAPE, action_space, model_path, data_path)
         if (mode_name == 'testing'):
-            return DdqnSolver(game_name, path.join(game_directory, 'logs'), INPUT_SHAPE, action_space, path.join(game_directory, 'model.h5'))
+            return DdqnSolver(game_name, path.join(game_directory, 'logs'), INPUT_SHAPE, action_space, model_path)
         raise RuntimeError('Unrecognized mode_name: %s' % mode_name)
 
     @staticmethod
