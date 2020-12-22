@@ -1,4 +1,3 @@
-from keras.optimizers import RMSprop
 from keras.models import Sequential
 from keras.layers import Conv2D, Flatten, Dense
 
@@ -16,8 +15,13 @@ def get_network(input_shape, action_space):
                      strides=2,
                      padding='valid',
                      activation='relu'))
+    model.add(Conv2D(64,
+                     3,
+                     strides=1,
+                     padding='valid',
+                     activation='relu'))
     model.add(Flatten())
-    model.add(Dense(256, activation='relu'))
+    model.add(Dense(512, activation='relu'))
     model.add(Dense(action_space))
     model.compile(loss='mean_squared_error', optimizer='adam')
     return model

@@ -48,9 +48,9 @@ class Stat:
         self.__values = []
 
         self.__csv_filepath = path.join(
-            directory_path, '%s - %s.csv' % (header, y_label))
+            directory_path, '%s_%s.csv' % (header, y_label))
         self.__png_filepath = path.join(
-            directory_path, '%s - %s.png' % (header, y_label))
+            directory_path, '%s_%s.png' % (header, y_label))
 
     def add_entry(self, value):
         self.__values.append(value)
@@ -58,6 +58,7 @@ class Stat:
             avg = mean(self.__values)
             self.__dump_csv(avg)
             self.__draw_png(self.__update_freq)
+            self.__values.clear()
 
     def __dump_csv(self, value):
         if (not os.path.exists(self.__csv_filepath)):

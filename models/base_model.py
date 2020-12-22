@@ -3,7 +3,7 @@ from utils.logger import Logger
 
 class BaseModel:
     def __init__(self, game_name, mode_name, log_directory, input_shape, action_space):
-        self.logger = Logger('%s %s' % (game_name, mode_name), log_directory)
+        self.logger = Logger('%s_%s' % (game_name, mode_name), log_directory)
         self.input_shape = input_shape
         self.action_space = action_space
 
