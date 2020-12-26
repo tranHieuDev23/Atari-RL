@@ -58,7 +58,7 @@ class Stat:
             avg = mean(self.__values)
             self.__dump_csv(avg)
             self.__draw_png(self.__update_freq)
-            self.__values.clear()
+            self.__values = []
 
     def __dump_csv(self, value):
         if (not os.path.exists(self.__csv_filepath)):
