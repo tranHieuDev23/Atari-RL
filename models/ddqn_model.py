@@ -11,6 +11,7 @@ load_dotenv(path.join(getcwd(), '.env'))
 
 GAMMA = float(getenv('GAMMA'))
 MEMORY_SIZE = int(getenv('MEMORY_SIZE'))
+MEMORY_REPLAY_SIZE = int(getenv('MEMORY_REPLAY_SIZE'))
 BATCH_SIZE = int(getenv('BATCH_SIZE'))
 TRAINING_FREQUENCY = int(getenv('TRAINING_FREQUENCY'))
 TARGET_NETWORK_UPDATE_FREQUENCY = int(
@@ -73,12 +74,6 @@ class DdqnTrainer(DdqnModel):
         self.memory = deque(maxlen=MEMORY_SIZE)
 
         self.data_path = data_path
-        # if (path.isfile(data_path)):
-        #     with open(data_path, 'rb') as data_file:
-        #         data = pkl.load(data_file)
-        #         self.total_step = data['total_step']
-        #         self.epsilon = data['epsilon']
-        #         self.memory = data['memory']
 
         self.model.summary()
         self.__target_model = get_network(input_shape, action_space)
@@ -126,41 +121,31 @@ class DdqnTrainer(DdqnModel):
 
     def save(self):
         self.save_weights()
-        # data = {
-        #     'total_step': self.total_step,
-        #     'epsilon': self.epsilon,
-        #     'memory': self.memory
-        # }
-        # with open(self.data_path, 'wb') as data_file:
-        #     pkl.dump(data, data_file)
 
     def __train(self):
-        batch = np.asarray(sample(self.memory, BATCH_SIZE))
-        if (len(batch) < BATCH_SIZE):
-            return
+        memory_replays = np.asarray(sample(self.memory, MEMORY_REPLAY_SIZE))
+        states = np.asarray(
+            [np.asarray(item['state']) for item in memory_replays]
+        )
+        next_states = np.asarray(
+            [np.asarray(item['next_state']) for item in memory_replays]
+        )
+        q_values = self.model.predict(states, verbose=0, batch_size=BATCH_SIZE)
+        next_q_values = self.model.predict(
+            next_states, verbose=0, batch_size=BATCH_SIZE)
 
-        states = []
-        q_values = []
-        max_q_values = []
-        for item in batch:
-            state = np.asarray(item['state']).astype(np.float64)
-            next_state = np.asarray(item['next_state']).astype(np.float64)
-            q_value = self.model.predict(
-                np.expand_dims(state, 0), verbose=0)[0]
-            next_q_value = np.max(
-                self.__target_model.predict(np.expand_dims(next_state, 0), verbose=0)[0])
+        max_next_q_values = np.max(next_q_values, axis=1)
+        for i in range(len(memory_replays)):
+            item = memory_replays[i]
             if (item['done']):
-                q_value[item['action']] = item['reward']
+                q_values[i][item['action']] = item['reward']
             else:
-                q_value[item['action']] = item['reward'] + GAMMA * next_q_value
-            states.append(state)
-            q_values.append(q_value)
-            max_q_values.append(np.max(q_value))
+                q_values[i][item['action']] = item['reward'] + \
+                    GAMMA * max_next_q_values[i]
 
-        fit = self.model.fit(x=np.asarray(states), y=np.asarray(
-            q_values), batch_size=BATCH_SIZE)
+        fit = self.model.fit(x=states, y=q_values, batch_size=BATCH_SIZE)
         loss = fit.history['loss'][0]
-        return loss, mean(max_q_values)
+        return loss, np.mean(np.max(q_values, axis=1))
 
     def __update_epsilon(self):
         self.epsilon -= EXPLORATION_DECAY
