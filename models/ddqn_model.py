@@ -104,8 +104,6 @@ class DdqnTrainer(DdqnModel):
             loss, average_max_q = self.__train()
             self.logger.add_loss(loss)
             self.logger.add_q(average_max_q)
-            print('{{"metric": "loss", "value": {}}}'.format(loss))
-            print('{{"metric": "average_max_q", "value": {}}}'.format(average_max_q))
 
         self.__update_epsilon()
 
@@ -131,7 +129,7 @@ class DdqnTrainer(DdqnModel):
             [np.asarray(item['next_state']) for item in memory_replays]
         )
         q_values = self.model.predict(states, verbose=0, batch_size=BATCH_SIZE)
-        next_q_values = self.model.predict(
+        next_q_values = self.__target_model.predict(
             next_states, verbose=0, batch_size=BATCH_SIZE)
 
         max_next_q_values = np.max(next_q_values, axis=1)

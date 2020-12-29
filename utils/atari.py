@@ -13,8 +13,9 @@ INPUT_SHAPE = (FRAME_SIZE, FRAME_SIZE, FRAMES_IN_OBSERVATION)
 
 class Atari:
     def __init__(self, game_name, mode_name='training', total_step_limit=5000000, total_run_limit=None, should_render=True, sign_only=False):
-        env_name = game_name + 'Deterministic-v4'
+        env_name = game_name + 'NoFrameskip-v4'
         self.__env = Atari.__generate_env(env_name)
+        self.__env.seed(42)
         self.__game_model = Atari.__generate_model(
             game_name, mode_name, self.__env.action_space.n)
         self.__should_render = should_render
