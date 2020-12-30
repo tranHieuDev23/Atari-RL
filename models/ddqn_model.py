@@ -97,6 +97,7 @@ class DdqnTrainer(DdqnModel):
 
     def step_update(self, current_step):
         self.total_step += 1
+        self.__update_epsilon()
         if (len(self.memory) < REPLAY_START_SIZE):
             return
 
@@ -104,8 +105,6 @@ class DdqnTrainer(DdqnModel):
             loss, average_max_q = self.__train()
             self.logger.add_loss(loss)
             self.logger.add_q(average_max_q)
-
-        self.__update_epsilon()
 
         if (self.total_step % MODEL_PERSISTENCE_UPDATE_FREQUENCY == 0):
             self.save()

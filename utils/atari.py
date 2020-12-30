@@ -46,6 +46,8 @@ class Atari:
 
                 action = self.__game_model.move(current_state)
                 next_state, reward, done, _ = self.__env.step(action)
+                if (done):
+                    reward = -1
                 if (self.__sign_only):
                     reward = np.sign(reward)
                 score += reward
