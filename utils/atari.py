@@ -1,6 +1,6 @@
 from models.ddqn_model import DdqnSolver, DdqnTrainer
 import gym
-from .atari_wrappers import NoopResetEnv, FireResetEnv, WarpFrame, FrameStack
+from .atari_wrappers import NoopResetEnv, FireResetEnv, WarpFrame, FrameStack, make_atari, wrap_deepmind
 from os import path, getcwd, getenv
 import numpy as np
 from dotenv import load_dotenv
@@ -12,14 +12,13 @@ INPUT_SHAPE = (FRAME_SIZE, FRAME_SIZE, FRAMES_IN_OBSERVATION)
 
 
 class Atari:
-    def __init__(self, game_name, mode_name='training', total_step_limit=5000000, total_run_limit=None, should_render=True, sign_only=False):
+    def __init__(self, game_name, mode_name='training', step_per_run_limit=10000, total_run_limit=None, should_render=True, sign_only=False):
         env_name = game_name + 'NoFrameskip-v4'
         self.__env = Atari.__generate_env(env_name)
-        self.__env.seed(42)
         self.__game_model = Atari.__generate_model(
             game_name, mode_name, self.__env.action_space.n)
         self.__should_render = should_render
-        self.__total_step_limit = total_step_limit
+        self.__step_per_run_limit = step_per_run_limit
         self.__total_run_limit = total_run_limit
         self.__sign_only = sign_only
 
@@ -29,15 +28,15 @@ class Atari:
         while True:
             if (self.__total_run_limit is not None and total_run >= self.__total_run_limit):
                 print('Reached total run limit')
-                return
+                break
             total_run += 1
             current_state = self.__env.reset()
             score = 0
             step = 0
             while True:
-                if (self.__total_step_limit is not None and total_step >= self.__total_step_limit):
-                    print('Reached total step limit')
-                    return
+                if (self.__step_per_run_limit is not None and step >= self.__step_per_run_limit):
+                    print('Reached step per run limit')
+                    break
                 total_step += 1
                 step += 1
 
@@ -58,6 +57,8 @@ class Atari:
                 self.__game_model.step_update(total_step)
                 if (done):
                     self.__game_model.save_run(score, step)
+                    print('{{"metric": "score", "value": {}}}'.format(score))
+                    print('{{"metric": "step", "value": {}}}'.format(step))
                     break
 
     def save(self):
@@ -80,10 +81,7 @@ class Atari:
 
     @staticmethod
     def __generate_env(env_name):
-        env = gym.make(env_name)
-        env = NoopResetEnv(env)
-        if ('FIRE' in env.unwrapped.get_action_meanings()):
-            env = FireResetEnv(env)
-        env = WarpFrame(env, width=FRAME_SIZE, height=FRAME_SIZE)
-        env = FrameStack(env, k=FRAMES_IN_OBSERVATION)
+        env = make_atari(env_name)
+        env = wrap_deepmind(env, frame_stack=True, scale=True)
+        env.seed(42)
         return env

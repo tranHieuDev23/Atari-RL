@@ -1,12 +1,12 @@
 from .base_model import BaseModel
 from .ddqn_cnn import get_network
-from random import random, randrange, sample
+from random import random, randrange
 from collections import deque
-from statistics import mean
 from os import path, getenv, getcwd
 import numpy as np
 from dotenv import load_dotenv
-import pickle as pkl
+import tensorflow as tf
+import keras
 load_dotenv(path.join(getcwd(), '.env'))
 
 GAMMA = float(getenv('GAMMA'))
@@ -72,12 +72,12 @@ class DdqnTrainer(DdqnModel):
                          input_shape, action_space, model_path, EXPLORATION_MAX)
         self.total_step = 0
         self.memory = deque(maxlen=MEMORY_SIZE)
-
         self.data_path = data_path
-
         self.model.summary()
         self.__target_model = get_network(input_shape, action_space)
         self.__reset_target_model()
+        self.__loss_function = keras.losses.Huber()
+        self.__optimizer = keras.optimizers.Adam(learning_rate=0.00025, clipnorm=1.0)
 
     def move(self, state):
         if (random() < self.epsilon or len(self.memory) < REPLAY_START_SIZE):
@@ -96,12 +96,10 @@ class DdqnTrainer(DdqnModel):
         })
 
     def step_update(self, current_step):
-        self.total_step += 1
+        self.total_step = current_step
         self.__update_epsilon()
-        if (len(self.memory) < REPLAY_START_SIZE):
-            return
 
-        if (self.total_step % TRAINING_FREQUENCY == 0):
+        if (self.total_step % TRAINING_FREQUENCY == 0 and len(self.memory) >= MEMORY_REPLAY_SIZE):
             loss, average_max_q = self.__train()
             self.logger.add_loss(loss)
             self.logger.add_q(average_max_q)
@@ -120,29 +118,29 @@ class DdqnTrainer(DdqnModel):
         self.save_weights()
 
     def __train(self):
-        memory_replays = np.asarray(sample(self.memory, MEMORY_REPLAY_SIZE))
-        states = np.asarray(
-            [np.asarray(item['state']) for item in memory_replays]
+        indices = np.random.choice(range(len(self.memory)), size=MEMORY_REPLAY_SIZE)
+        states = np.asarray([np.asarray(self.memory[i]['state']) for i in indices])
+        next_states = np.asarray([np.asarray(self.memory[i]['next_state']) for i in indices])
+        dones = tf.convert_to_tensor(
+            [float(self.memory[i]['done']) for i in indices]
         )
-        next_states = np.asarray(
-            [np.asarray(item['next_state']) for item in memory_replays]
-        )
-        q_values = self.model.predict(states, verbose=0, batch_size=BATCH_SIZE)
-        next_q_values = self.__target_model.predict(
-            next_states, verbose=0, batch_size=BATCH_SIZE)
+        rewards = np.asarray([np.asarray(self.memory[i]['reward']) for i in indices])
+        actions = np.asarray([np.asarray(self.memory[i]['action']) for i in indices])
 
-        max_next_q_values = np.max(next_q_values, axis=1)
-        for i in range(len(memory_replays)):
-            item = memory_replays[i]
-            if (item['done']):
-                q_values[i][item['action']] = item['reward']
-            else:
-                q_values[i][item['action']] = item['reward'] + \
-                    GAMMA * max_next_q_values[i]
+        next_q_values = self.__target_model.predict(next_states, verbose=0, batch_size=BATCH_SIZE)
+        updated_q_values = rewards + GAMMA * np.max(next_q_values, axis=1)
+        updated_q_values = updated_q_values * (1 - dones) - dones
 
-        fit = self.model.fit(x=states, y=q_values, batch_size=BATCH_SIZE)
-        loss = fit.history['loss'][0]
-        return loss, np.mean(np.max(q_values, axis=1))
+        with tf.GradientTape() as tape:
+            q_values = self.model(states)
+            masks = tf.one_hot(actions, self.action_space)
+            q_actions = tf.reduce_sum(tf.multiply(q_values, masks), axis=1)
+            loss = self.__loss_function(updated_q_values, q_actions)
+
+            gradients = tape.gradient(loss, self.model.trainable_variables)
+            self.__optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+
+        return float(loss), np.mean(np.max(q_values, axis=1))
 
     def __update_epsilon(self):
         self.epsilon -= EXPLORATION_DECAY
